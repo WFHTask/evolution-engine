@@ -1,0 +1,83 @@
+mission: |
+  运营一批 GitHub 账号，持续向真实的优质开源项目贡献有用的 PR。
+  账号长期存活并积累真实声誉，避免被平台风控识别。
+
+principles:
+  - priority: 1
+    rule: "账号绝不能被封禁或 Shadowban"
+  - priority: 2
+    rule: "行为必须拟人化，杜绝机械化特征"
+  - priority: 3
+    rule: "PR 必须对目标项目有实质价值，禁止水 PR"
+  - priority: 4
+    rule: "PR 被维护者真心合并或获得正面 review"
+  - priority: 5
+    rule: "Token 与基础设施成本与产出价值匹配"
+
+resources:
+  accounts:
+    path: "./workspace/resources/accounts.enc.json"
+    health_check: "./scripts/check_account_health.sh"
+  proxies:
+    path: "env:PROXY_PROVIDER_URL"
+    health_check: "./scripts/check_proxy_latency.sh"
+  budget:
+    daily_usd: 30
+    hard_cap_usd: 100
+
+evidence_sources:
+  - "./dashboard/metrics.json"
+  - "./dashboard/openclaw_config_hint.json"
+  - "./scripts/status.sh"
+
+hard_stops:
+  budget_hard_cap_usd: 100
+  max_consecutive_failures: 5
+  max_iterations_per_day: 20
+  on_trigger: "halt_and_notify"
+
+# ---------------------------------------------------------------------------
+# models: LLM 配置
+#
+# name / api_base_url 支持三种写法：
+#   1. 直接写值：        name: "gpt-4o"
+#   2. 读取环境变量：    name: "env:ACTOR_MODEL"        （推荐，保持 YAML 无密钥）
+#
+# api_key_env 填写环境变量的名字（引擎运行时自动读取该变量的值）：
+#   api_key_env: "ACTOR_API_KEY"   →  os.getenv("ACTOR_API_KEY")
+#
+# 简写形式（Anthropic 原生 SDK，key 来自 ANTHROPIC_API_KEY）：
+#   models:
+#     actor: "claude-sonnet-4"
+#     judge: "claude-opus-4"
+#
+# 常用第三方 base_url：
+#   OpenAI:      https://api.openai.com/v1
+#   DeepSeek:    https://api.deepseek.com/v1
+#   Groq:        https://api.groq.com/openai/v1
+#   OpenRouter:  https://openrouter.ai/api/v1
+#   Ollama:      http://localhost:11434/v1   （api_key 设任意非空值）
+#
+# 复制 .env.example 为 .env 并填入实际值，actor 与 judge 可接不同的服务商。
+# ---------------------------------------------------------------------------
+models:
+  actor:
+    name: "env:ACTOR_MODEL"
+    api_base_url: "env:ACTOR_API_BASE_URL"
+    api_key_env: "ACTOR_API_KEY"
+  judge:
+    name: "env:JUDGE_MODEL"
+    api_base_url: "env:JUDGE_API_BASE_URL"
+    api_key_env: "JUDGE_API_KEY"
+
+# ---------------------------------------------------------------------------
+# github: PR 目标仓库（Router 通过 GitHub REST API 提 PR，无需本地 git/gh CLI）
+# repo 填写 "owner/repo" 格式，支持 env: 前缀
+# token_env 填写持有 PAT 的环境变量名（权限需含 repo + pull_requests）
+# ---------------------------------------------------------------------------
+github:
+  repo: "env:GITHUB_REPO"
+  token_env: "GITHUB_TOKEN"
+  base_branch: "v6-release"
+
+safety_mode: "human_in_the_loop"

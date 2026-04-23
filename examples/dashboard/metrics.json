@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-04-23T09:13:30Z",
+  "accounts": [
+    {
+      "id": "clawoss_main",
+      "status": "degraded",
+      "status_detail": "subagent_cascade_failure",
+      "created_at": "2026-01-01T00:00:00Z",
+      "last_active_at": "2026-04-23T09:13:30Z",
+      "pr_count": 42,
+      "merge_count": 18
+    }
+  ],
+  "prs": [],
+  "resources": {
+    "accounts_total": 1,
+    "accounts_alive": 1,
+    "accounts_rate_limited": 0,
+    "accounts_banned": 0,
+    "proxies_total": 1,
+    "proxies_healthy": 1
+  },
+  "budget": {
+    "daily_used_usd": 8.2,
+    "daily_cap_usd": 30.0,
+    "cumulative_used_usd": 28.0,
+    "hard_cap_usd": 100.0,
+    "reset_at": "2026-04-24T00:00:00Z"
+  },
+  "recent_events": [
+    {
+      "ts": "2026-04-23T09:13:30Z",
+      "type": "subagent_spawn_rate_limit",
+      "severity": "error",
+      "details": {
+        "spawned_count": 7,
+        "config_max_concurrent": 6,
+        "actual_safe_limit": 3,
+        "error": "HTTP 429 Too Many Requests \u2014 GitHub secondary rate limit triggered",
+        "affected_subagents": [
+          "impl-1",
+          "impl-2",
+          "impl-3",
+          "impl-4",
+          "impl-5",
+          "impl-6",
+          "impl-7"
+        ],
+        "all_killed": true
+      }
+    },
+    {
+      "ts": "2026-04-23T09:13:30Z",
+      "type": "subagent_spawn_rate_limit",
+      "severity": "error",
+      "details": {
+        "spawned_count": 6,
+        "config_max_concurrent": 6,
+        "actual_safe_limit": 3,
+        "error": "HTTP 429 Too Many Requests \u2014 GitHub secondary rate limit triggered",
+        "affected_subagents": [
+          "impl-1",
+          "impl-2",
+          "impl-3",
+          "impl-4",
+          "impl-5",
+          "impl-6"
+        ],
+        "all_killed": true
+      }
+    },
+    {
+      "ts": "2026-04-23T09:13:30Z",
+      "type": "config_mismatch_detected",
+      "severity": "warning",
+      "details": {
+        "file": "config/openclaw.json",
+        "json_path": "agents.defaults.subagents.maxConcurrent",
+        "current_value": 6,
+        "correct_value": 3,
+        "reason": "heartbeat prompt explicitly states maxConcurrent is 3; value 6 causes cascading 429 errors that kill ALL subagents in the cycle",
+        "heartbeat_quote": "maxConcurrent is 3. NEVER spawn more than 3 implementations per heartbeat cycle. Spawning 10+ causes API 429 rate limit errors that kill ALL sub-agents."
+      }
+    }
+  ],
+  "diagnostics": {
+    "root_cause": "config/openclaw.json sets agents.defaults.subagents.maxConcurrent=6 but the safe operational limit is 3. Every heartbeat cycle that attempts to use the full 6 slots triggers GitHub 429 rate limits, killing all concurrent subagents and wasting the entire cycle budget.",
+    "recommended_fix": "Change maxConcurrent from 6 to 3 in config/openclaw.json"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "_note": "Current content of config/openclaw.json in the target repo (AndrosEt/ClawOSS). Used by Actor to produce an exact diff.",
+  "target_file": "config/openclaw.json",
+  "relevant_section": {
+    "path": "agents.defaults.subagents",
+    "current_content": {
+      "model": "__LLM_MODEL__",
+      "maxConcurrent": 6,
+      "archiveAfterMinutes": 1440,
+      "maxChildrenPerAgent": 8,
+      "maxSpawnDepth": 2,
+      "announceTimeoutMs": 5000
+    },
+    "required_change": {
+      "field": "maxConcurrent",
+      "from": 6,
+      "to": 3
+    }
+  },
+  "full_subagents_block_lines": [
+    "      \"subagents\": {",
+    "        \"model\": \"__LLM_MODEL__\",",
+    "        \"maxConcurrent\": 6,",
+    "        \"archiveAfterMinutes\": 1440,",
+    "        \"maxChildrenPerAgent\": 8,",
+    "        \"maxSpawnDepth\": 2,",
+    "        \"announceTimeoutMs\": 5000",
+    "      }"
+  ]
+}
