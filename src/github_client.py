@@ -20,6 +20,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
+import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -31,6 +32,55 @@ logger = logging.getLogger("evolution.github")
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def _normalize_diff(patch_text: str) -> str:
+    """Rewrite @@ hunk headers so line-count fields match actual content.
+
+    LLMs sometimes emit incorrect or placeholder hunk headers, e.g.:
+      @@ -X,Y +X,Y @@          (literal placeholders)
+      @@ -15,10 +15,10 @@      (counts claim 10 lines but body has 3)
+
+    unidiff.PatchSet is strict and raises ``UnidiffParseError: Hunk is
+    shorter than expected`` in both cases.  This function recounts source
+    and target lines from the actual body and rewrites every header,
+    making downstream parsing robust to LLM output variance.
+    """
+    # Matches both numeric and placeholder starts: @@ -<ss>[,<sc>] +<ts>[,<tc>] @@<rest>
+    hunk_re = re.compile(r"^@@ -(\S+?)(?:,\S+?)? \+(\S+?)(?:,\S+?)? @@(.*)", re.DOTALL)
+
+    out: list[str] = []
+    lines = patch_text.splitlines(keepends=True)
+    i = 0
+    while i < len(lines):
+        raw = lines[i]
+        m = hunk_re.match(raw.rstrip("\r\n"))
+        if m:
+            raw_ss, raw_ts, rest = m.group(1), m.group(2), m.group(3)
+            # Use numeric start if available; fall back to 1 for placeholders
+            ss = raw_ss if raw_ss.isdigit() else "1"
+            ts = raw_ts if raw_ts.isdigit() else "1"
+
+            # Collect hunk body lines until the next header or file boundary
+            body: list[str] = []
+            i += 1
+            while i < len(lines):
+                nxt = lines[i].rstrip("\r\n")
+                if nxt.startswith("@@") or nxt.startswith("diff "):
+                    break
+                body.append(lines[i])
+                i += 1
+
+            # Recount: lines not starting with '+' count for source;
+            #          lines not starting with '-' count for target
+            src = sum(1 for ln in body if not ln.startswith("+"))
+            tgt = sum(1 for ln in body if not ln.startswith("-"))
+            out.append(f"@@ -{ss},{src} +{ts},{tgt} @@{rest}\n")
+            out.extend(body)
+        else:
+            out.append(raw)
+            i += 1
+    return "".join(out)
+
 
 def _apply_hunks(original: str, patched_file) -> str:  # type: ignore[no-untyped-def]
     """Apply unidiff hunks to *original* file content; return new content."""
@@ -103,7 +153,8 @@ def create_pr_via_github_api(
         msg = exc.data.get("message", str(exc)) if isinstance(exc.data, dict) else str(exc)
         raise RuntimeError(f"Cannot access repo '{repo_name}': {msg}") from exc
 
-    # Parse patch
+    # Normalize hunk headers before parsing (handles LLM placeholder/wrong counts)
+    patch_text = _normalize_diff(patch_text)
     patch_set = PatchSet(patch_text)
     if not patch_set:
         raise RuntimeError("Patch produced no file changes after parsing")

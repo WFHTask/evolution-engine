@@ -137,7 +137,7 @@ def run(config_path: Path) -> None:
             evidence_text=json.dumps(obs.evidence, ensure_ascii=False, indent=2),
             patch_text=actor_res.patch,
             prompts_dir=prompts_dir,
-            max_tokens=2400,
+            max_tokens=4000,
         )
     except RuntimeError as e:
         hard.record_failure()
