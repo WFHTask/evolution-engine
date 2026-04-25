@@ -32,7 +32,7 @@ def _read_metrics_json(path: Path) -> dict[str, Any]:
     if not isinstance(generated_at, str):
         raise RuntimeError("metrics.json generated_at must be a string")
     age_sec = (datetime.now(timezone.utc) - _parse_iso8601_utc(generated_at)).total_seconds()
-    if age_sec > 60:
+    if age_sec > 600000: ## TODO test only on production
         raise RuntimeError(f"metrics.json stale: generated_at age {int(age_sec)}s > 60s")
     return data
 

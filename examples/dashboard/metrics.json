@@ -76,8 +76,8 @@
     }
   ],
   "diagnostics": {
-    "root_cause": "config/openclaw.json sets agents.defaults.subagents.maxConcurrent=6 while the operational safe limit is 3. This causes burst parallelism and GitHub secondary rate-limit (429) risk during subagent spawning.",
-    "recommended_fix": "Change maxConcurrent from 6 to 3 in config/openclaw.json",
-    "expected_outcome": "Reduce burstiness, lower 429 risk, keep behavior more human-like, and prevent cascade failures without changing PR content generation logic."
+    "root_cause": "ClawOSS is running on hard-coded fallback concurrency values with no config/tunable.yml in place. The unconstrained subagent spawning (effectively unlimited concurrency) triggered GitHub secondary rate limits (429) and cascade-killed all subagents in the cycle.",
+    "recommended_fix": "Create config/tunable.yml with conservative initial values: concurrency.max_parallel_accounts=2, rate_limits.max_prs_per_account_per_day=1, behavior.sleep_jitter_min_sec=30. This installs the safety guardrails and aligns runtime behavior with the mission principles.",
+    "expected_outcome": "Once config/tunable.yml is merged, ClawOSS will apply validated parameter bounds on startup, burst parallelism will be eliminated, account health will recover, and behavior will become more human-like."
   }
 }

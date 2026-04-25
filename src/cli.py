@@ -169,11 +169,11 @@ def run(config_path: Path) -> None:
             click.echo("Top risks: " + "; ".join(judge_res.verdict.top_risks))
         return
 
-    # PASS — build descriptive branch name
-    from datetime import date as _date
+    # PASS — build descriptive branch name (minute-precision to avoid same-day collisions)
+    from datetime import datetime as _dt
     _slug = _summarize_for_branch(actor_res.rationale)
     title = f"evolution: {_slug}"
-    branch = f"evolution/{_slug}-{_date.today().isoformat().replace('-', '')}"
+    branch = f"evolution/{_slug}-{_dt.now().strftime('%Y%m%d-%H%M')}"
     body = "\n".join(
         [
             "## Summary",

@@ -134,12 +134,15 @@ def _call_anthropic(
 
     logger.info("LLM [anthropic] model=%s (api_key=...%s)", model, api_key[-6:])
     client = Anthropic(api_key=api_key)
-    msg = client.messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        system=system,
-        messages=[{"role": "user", "content": user}],
-    )
+    try:
+        msg = client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+    except Exception as e:
+        raise RuntimeError(f"Anthropic API call failed ({type(e).__name__}): {e}") from e
     text = "".join(block.text for block in msg.content if hasattr(block, "text"))
     in_tok = getattr(msg.usage, "input_tokens", 0)
     out_tok = getattr(msg.usage, "output_tokens", 0)
@@ -156,19 +159,60 @@ def _call_openai_compatible(
     max_tokens: int,
 ) -> LLMResponse:
     from openai import OpenAI  # type: ignore[import]
+    import httpx
 
     logger.info("LLM [openai-compat] model=%s base_url=%s (api_key=...%s)", model, base_url, api_key[-6:])
-    client = OpenAI(api_key=api_key, base_url=base_url)
-    resp = client.chat.completions.create(
+    client = OpenAI(
+        api_key=api_key,
+        base_url=base_url,
+        timeout=httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=30.0),
+        max_retries=3,
+    )
+    try:
+        text, reasoning, in_tok, out_tok = _streaming_collect(client, model, system, user, max_tokens)
+    except Exception as e:
+        raise RuntimeError(f"OpenAI-compatible API call failed ({type(e).__name__}): {e}") from e
+    if not text and reasoning:
+        logger.info("LLM [openai-compat] content empty, using reasoning_content (%d chars)", len(reasoning))
+        text = reasoning
+    logger.info("LLM [openai-compat] response length=%d chars, tokens in=%d out=%d", len(text), in_tok, out_tok)
+    return LLMResponse(text=text, input_tokens=in_tok, output_tokens=out_tok)
+
+
+def _streaming_collect(
+    client: "OpenAI",
+    model: str,
+    system: str,
+    user: str,
+    max_tokens: int,
+) -> tuple[str, str, int, int]:
+    """Use streaming to avoid gateway idle-timeout killing long-thinking models."""
+    content_parts: list[str] = []
+    reasoning_parts: list[str] = []
+    in_tok = 0
+    out_tok = 0
+    with client.chat.completions.create(
         model=model,
         max_tokens=max_tokens,
+        stream=True,
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-    )
-    text = resp.choices[0].message.content or ""
-    in_tok = resp.usage.prompt_tokens if resp.usage else 0
-    out_tok = resp.usage.completion_tokens if resp.usage else 0
-    logger.info("LLM [openai-compat] response length=%d chars, tokens in=%d out=%d", len(text), in_tok, out_tok)
-    return LLMResponse(text=text, input_tokens=in_tok, output_tokens=out_tok)
+    ) as stream:
+        for chunk in stream:
+            if not chunk.choices:
+                if chunk.usage:
+                    in_tok = chunk.usage.prompt_tokens or 0
+                    out_tok = chunk.usage.completion_tokens or 0
+                continue
+            delta = chunk.choices[0].delta
+            if delta.content:
+                content_parts.append(delta.content)
+            rc = getattr(delta, "reasoning_content", None)
+            if rc:
+                reasoning_parts.append(rc)
+            if chunk.usage:
+                in_tok = chunk.usage.prompt_tokens or 0
+                out_tok = chunk.usage.completion_tokens or 0
+    return "".join(content_parts), "".join(reasoning_parts), in_tok, out_tok

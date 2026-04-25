@@ -27,7 +27,7 @@ resources:
 
 evidence_sources:
   - "./dashboard/metrics.json"
-  - "./dashboard/openclaw_config_hint.json"
+  - "./dashboard/tunable_hint.json"
   - "./scripts/status.sh"
 
 hard_stops:

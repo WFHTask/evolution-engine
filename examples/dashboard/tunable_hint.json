@@ -1,0 +1,77 @@
+{
+  "_note": "Evidence hint for the Actor. Describes the target tunable parameter file in the ClawOSS repo.",
+  "_source": "CONTRACT_metrics_schema.md §2 — config/tunable.yml is the ONLY file the engine is allowed to write via PR.",
+
+  "target_file": "config/tunable.yml",
+  "current_state": "FILE DOES NOT EXIST — ClawOSS is currently running on hard-coded fallback values. Creating this file via PR installs the safety guardrails.",
+
+  "schema": {
+    "schema_version": "1.0.0",
+    "timing": {
+      "api_call_interval_sec":       "int [10, 300]",
+      "account_switch_interval_sec": "int [60, 600]",
+      "pr_submit_wait_sec":          "int [1, 60]"
+    },
+    "retry": {
+      "max_retries":      "int [1, 5]",
+      "backoff_base_sec": "int [1, 10]",
+      "timeout_sec":      "int [10, 120]"
+    },
+    "concurrency": {
+      "max_parallel_accounts":       "int [1, 10]",
+      "max_parallel_tasks_per_acct": "int [1, 3]"
+    },
+    "rate_limits": {
+      "max_prs_per_account_per_day":       "int [1, 10]",
+      "max_api_calls_per_account_per_day": "int [50, 1000]",
+      "max_prs_per_repo_per_day":          "int [1, 3]"
+    },
+    "selection": {
+      "min_repo_stars":         "int [10, 10000]",
+      "min_repo_activity_days": "int [7, 365]",
+      "max_existing_prs_by_us": "int [0, 10]"
+    },
+    "behavior": {
+      "sleep_jitter_min_sec": "int [0, 60]",
+      "sleep_jitter_max_sec": "int [10, 600]"
+    }
+  },
+
+  "evidence_to_parameter_mapping": {
+    "subagent_spawn_rate_limit (429 errors)": "concurrency.max_parallel_accounts should be conservative (2) to avoid burst-parallelism triggering GitHub secondary rate limits",
+    "rate_limited account status":            "rate_limits.max_prs_per_account_per_day should start low (1) to recover account health",
+    "human-like behavior requirement":        "behavior.sleep_jitter_min_sec >= 30 and sleep_jitter_max_sec >= 120 to randomise timing"
+  },
+
+  "recommended_initial_values": {
+    "schema_version": "1.0.0",
+    "timing": {
+      "api_call_interval_sec": 60,
+      "account_switch_interval_sec": 180,
+      "pr_submit_wait_sec": 10
+    },
+    "retry": {
+      "max_retries": 2,
+      "backoff_base_sec": 3,
+      "timeout_sec": 45
+    },
+    "concurrency": {
+      "max_parallel_accounts": 2,
+      "max_parallel_tasks_per_acct": 1
+    },
+    "rate_limits": {
+      "max_prs_per_account_per_day": 1,
+      "max_api_calls_per_account_per_day": 80,
+      "max_prs_per_repo_per_day": 1
+    },
+    "selection": {
+      "min_repo_stars": 200,
+      "min_repo_activity_days": 30,
+      "max_existing_prs_by_us": 1
+    },
+    "behavior": {
+      "sleep_jitter_min_sec": 30,
+      "sleep_jitter_max_sec": 180
+    }
+  }
+}
